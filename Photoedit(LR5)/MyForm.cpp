@@ -63,8 +63,18 @@ void PhotoeditLR5::MyForm::ApplyAdjust(Rectangle rect)
         int brightness = trackBar_brightnrss->Value;
         int contrast = trackBar_contrast->Value / 100.0f;
 
+        /* Brightness */
         AdjustBrightness(rect, brightness);
+        /* Contrast */
         AdjustContrast(rect, contrast);
+        /* Binarization */
+        if (checkBox_bin->Checked) Binarization(selectionRectangle, trackBar_bin->Value);
+        /* Gray Shades */
+        else if (checkBox_grayShades->Checked) GrayShades(selectionRectangle);
+        /* Negative */
+        else if (checkBox_negative->Checked) Negative(selectionRectangle);
+        /* Histogram */
+        DrawHistogram(currChannel);
 
         this->panel_image->Invalidate();
     }
@@ -76,6 +86,9 @@ System::Void PhotoeditLR5::MyForm::panel_image_Paint(System::Object^ sender, Sys
     if (image != nullptr) {
         panel_image->Width = image->Width;
         panel_image->Height = image->Height;
+        panel1->Width = image->Width;
+        panel1->Height = image->Height;
+        chart_hist->Width = image->Width;
         e->Graphics->DrawImage(image, 0, 0, panel_image->ClientSize.Width, panel_image->ClientSize.Height);
     }
 
@@ -132,6 +145,9 @@ void PhotoeditLR5::MyForm::AdjustContrast(Rectangle rect, float contrastFactor)
     // ѕроходим по всем пиксел€м изображени€ дл€ вычислени€ среднего значени€ каналов
     for (int x = rect.Left; x < rect.Right; x++) {
         for (int y = rect.Top; y < rect.Bottom; y++) {
+            // ѕровер€ем, не выходит ли координата за пределы изображени€
+            if (x < 0 || x >= image->Width || y < 0 || y >= image->Height)
+                continue;
             Color pixelColor = image->GetPixel(x, y);
             double Y = 0.299 * pixelColor.R + 0.587 * pixelColor.G + 0.114 * pixelColor.B;
             totalBrightness += Y;
@@ -141,8 +157,7 @@ void PhotoeditLR5::MyForm::AdjustContrast(Rectangle rect, float contrastFactor)
     // ¬ычисл€ем среднее значение дл€ каждого канала
     double avgBrightness = totalBrightness / totalPixels;
 
-    for (int x = rect.Left; x < rect.Right; x++)
-    {
+    for (int x = rect.Left; x < rect.Right; x++) {
         for (int y = rect.Top; y < rect.Bottom; y++) {
             // ѕровер€ем, не выходит ли координата за пределы изображени€
             if (x < 0 || x >= image->Width || y < 0 || y >= image->Height)
@@ -164,5 +179,155 @@ void PhotoeditLR5::MyForm::AdjustContrast(Rectangle rect, float contrastFactor)
             // ”станавливаем новый цвет пиксел€
             image->SetPixel(x, y, Color::FromArgb(r, g, b));
         }
+    }
+}
+
+System::Void PhotoeditLR5::MyForm::trackBar_bin_Scroll(System::Object^ sender, System::EventArgs^ e)
+{
+    ApplyAdjust(selectionRectangle);
+}
+
+void PhotoeditLR5::MyForm::Binarization(Rectangle rect, int binaryLevel)
+{
+    for (int x = rect.Left; x < rect.Right; x++) {
+        for (int y = rect.Top; y < rect.Bottom; y++) {
+
+            // ѕровер€ем, не выходит ли координата за пределы изображени€
+            if (x < 0 || x >= image->Width || y < 0 || y >= image->Height)
+                continue;
+
+            // ѕолучаем цвет пиксел€ на изображении
+            Color pixelColor = image->GetPixel(x, y);
+
+            // ѕолучаем значение €ркости точки
+            int Y = (int)(0.299 * pixelColor.R + 0.587 * pixelColor.G + 0.114 * pixelColor.B);
+
+            Color binaryColor = Y >= binaryLevel ? Color::White : Color::Black;
+
+            image->SetPixel(x, y, binaryColor);
+        }
+    }
+}
+
+System::Void PhotoeditLR5::MyForm::checkBox_bin_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    checkBox_grayShades->Checked = false;
+    checkBox_negative->Checked = false;
+    ApplyAdjust(selectionRectangle);
+}
+
+System::Void PhotoeditLR5::MyForm::checkBox_grayShades_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    checkBox_bin->Checked = false;
+    checkBox_negative->Checked = false;
+    ApplyAdjust(selectionRectangle);
+}
+
+System::Void PhotoeditLR5::MyForm::checkBox_negative_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    checkBox_bin->Checked = false;
+    checkBox_grayShades->Checked = false;
+    ApplyAdjust(selectionRectangle);
+}
+
+void PhotoeditLR5::MyForm::GrayShades(Rectangle rect)
+{
+    for (int x = rect.Left; x < rect.Right; x++) {
+        for (int y = rect.Top; y < rect.Bottom; y++) {
+            // ѕровер€ем, не выходит ли координата за пределы изображени€
+            if (x < 0 || x >= image->Width || y < 0 || y >= image->Height)
+                continue;
+
+            // ѕолучаем цвет пиксел€ на изображении
+            Color pixelColor = image->GetPixel(x, y);
+
+            // ѕолучаем значение €ркости точки
+            int Y = (int)(0.299 * pixelColor.R + 0.587 * pixelColor.G + 0.114 * pixelColor.B);
+
+            image->SetPixel(x, y, Color::FromArgb(Y, Y, Y));
+        }
+    }
+}
+
+void PhotoeditLR5::MyForm::Negative(Rectangle rect)
+{
+    for (int x = rect.Left; x < rect.Right; x++) {
+        for (int y = rect.Top; y < rect.Bottom; y++) {
+            // ѕровер€ем, не выходит ли координата за пределы изображени€
+            if (x < 0 || x >= image->Width || y < 0 || y >= image->Height)
+                continue;
+
+            // ѕолучаем цвет пиксел€ на изображении
+            Color pixelColor = image->GetPixel(x, y);
+
+            // Ќегатив по каналам
+            int r = 255 - pixelColor.R;
+            int g = 255 - pixelColor.G;
+            int b = 255 - pixelColor.B;
+
+            image->SetPixel(x, y, Color::FromArgb(r, g, b));
+        }
+    }
+}
+
+System::Void PhotoeditLR5::MyForm::radioButton_Y_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    currChannel = HIST_CHANNEL::BRIGHTNESS;
+    DrawHistogram(currChannel);
+}
+
+System::Void PhotoeditLR5::MyForm::radioButton_R_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    currChannel = HIST_CHANNEL::RED;
+    DrawHistogram(currChannel);
+}
+
+System::Void PhotoeditLR5::MyForm::radioButton_G_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    currChannel = HIST_CHANNEL::GREEN;
+    DrawHistogram(currChannel);
+}
+
+System::Void PhotoeditLR5::MyForm::radioButton_B_CheckedChanged(System::Object^ sender, System::EventArgs^ e)
+{
+    currChannel = HIST_CHANNEL::BLUE;
+    DrawHistogram(currChannel);
+}
+
+void PhotoeditLR5::MyForm::SetHist(int* hist, HIST_CHANNEL channel)
+{
+    for (int x = 0; x < image->Width; x++) {
+        for (int y = 0; y < image->Height; y++) {
+            Color pixelColor = image->GetPixel(x, y);
+            int index = 0;
+            switch (channel) {
+            case PhotoeditLR5::BRIGHTNESS:
+                index = (int)(0.299 * pixelColor.R + 0.587 * pixelColor.G + 0.114 * pixelColor.B);
+                break;
+            case PhotoeditLR5::RED:
+                index = pixelColor.R;
+                break;
+            case PhotoeditLR5::GREEN:
+                index = pixelColor.G;
+                break;
+            case PhotoeditLR5::BLUE:
+                index = pixelColor.B;
+                break;
+            }
+            ++hist[index];
+        }
+    }
+}
+
+void PhotoeditLR5::MyForm::DrawHistogram(HIST_CHANNEL channel)
+{
+    if (!image) return;
+    int hist[256] = { 0 };
+    SetHist(hist, channel);
+
+    chart_hist->Series[0]->Points->Clear();
+    int x = 0;
+    for (auto it : hist) {
+        chart_hist->Series[0]->Points->AddXY(x++, it);
     }
 }
