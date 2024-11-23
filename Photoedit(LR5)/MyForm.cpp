@@ -61,7 +61,7 @@ void PhotoeditLR5::MyForm::ApplyAdjust(Rectangle rect)
     if (image && selectionRectangle.Width > 0 && selectionRectangle.Height > 0) {
         image = gcnew Bitmap(startImage);
         int brightness = trackBar_brightnrss->Value;
-        int contrast = trackBar_contrast->Value / 100.0f;
+        float contrast = trackBar_contrast->Value / 100.0f;
 
         /* Brightness */
         AdjustBrightness(rect, brightness);
